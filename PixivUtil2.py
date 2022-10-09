@@ -621,6 +621,13 @@ def menu_download_from_tags_list(opisvalid, args, options):
         if bookmark_count is not None and len(bookmark_count) > 0:
             bookmark_count = int(bookmark_count)
 
+        while True:
+            type_mode = input("Search type [a-all|iu-Illustration and Ugoira|m-manga|i-Illustrations, default is all: ").rstrip("\r") or "a"
+            if type_mode in {'a', 'i', 'm'}:
+                break
+            else:
+                print("Valid values are 'a', 'i', or 'm'.")
+
     PixivListHandler.process_tags_list(sys.modules[__name__],
                                        __config__,
                                        filename,
@@ -630,7 +637,8 @@ def menu_download_from_tags_list(opisvalid, args, options):
                                        sort_order=sort_order,
                                        bookmark_count=bookmark_count,
                                        start_date=start_date,
-                                       end_date=end_date)
+                                       end_date=end_date,
+                                       type_mode=type_mode)
 
 
 def menu_download_new_illust_from_bookmark(opisvalid, args, options):

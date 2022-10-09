@@ -105,7 +105,8 @@ def process_tags_list(caller,
                       sort_order='date_d',
                       bookmark_count=None,
                       start_date=None,
-                      end_date=None):
+                      end_date=None,
+                      type_mode=None):
 
     try:
         print("Reading:", filename)
@@ -121,7 +122,8 @@ def process_tags_list(caller,
                                           end_date=end_date,
                                           use_tags_as_dir=config.useTagsAsDir,
                                           bookmark_count=bookmark_count,
-                                          sort_order=sort_order)
+                                          sort_order=sort_order,
+                                          type_mode=type_mode)
     except Exception as ex:
         if isinstance(ex, KeyboardInterrupt):
             raise
