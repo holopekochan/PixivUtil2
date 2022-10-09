@@ -803,6 +803,53 @@ class PixivBrowser(mechanize.Browser):
 
         return (artist, response)
 
+    def getResponseResult(self, url, member_id, tags, current_page, start_page=1, use_bookmark_data=False):
+        PixivHelper.print_and_log('info', f'Looping... for {url}')
+        response_page = self.getPixivPage(url, returnParsed=False)
+        self.handleDebugTagSearchPage(response_page, url)
+        result = None
+
+        if member_id is not None:
+            result = PixivTags()
+            parse_search_page = BeautifulSoup(response_page, features="html5lib")
+            result.parseMemberTags(parse_search_page, member_id, tags)
+            parse_search_page.decompose()
+            del parse_search_page
+        else:
+            try:
+                result = PixivTags()
+                result.parseTags(response_page, tags, current_page)
+                # parse additional information
+                if 0:  # Disabled, see #1159 #1160
+                    idx = 0
+                    print("Retrieving bookmark information...", end=' ')
+                    for image in result.itemList:
+                        idx = idx + 1
+                        print("\r", end=' ')
+                        print(f"Retrieving bookmark information... [{idx}] of [{len(result.itemList)}]", end=' ')
+                        img_url = f"https://www.pixiv.net/ajax/illust/{image.imageId}"
+                        response_page = self._get_from_cache(img_url)
+                        if response_page is None:
+                            try:
+                                res = self.open_with_retry(img_url)
+                                response_page = res.read()
+                                res.close()
+                            except urllib.error.HTTPError as ex:
+                                if ex.code == 404:
+                                    response_page = ex.read()
+                            self._put_to_cache(img_url, response_page)
+                        image_info_js = json.loads(response_page)
+                        image.bookmarkCount = int(
+                            image_info_js["body"]["bookmarkCount"])
+                        image.imageResponse = int(
+                            image_info_js["body"]["responseCount"])
+                        PixivHelper.wait(result, self._config)
+                print("")
+            except BaseException:
+                PixivHelper.dump_html(f"Dump for SearchTags {tags}.html", response_page)
+                raise
+        return result
+
     def getSearchTagPage(self,
                          tags,
                          current_page,
@@ -833,6 +880,23 @@ class PixivBrowser(mechanize.Browser):
             if not self._isPremium:
                 bookmark_count = 0
 
+            if r18mode:
+                url = PixivHelper.generate_search_tag_url(tags,
+                                                        current_page,
+                                                        title_caption=title_caption,
+                                                        wild_card=wild_card,
+                                                        sort_order=sort_order,
+                                                        start_date=start_date,
+                                                        end_date=end_date,
+                                                        member_id=member_id,
+                                                        r18mode=r18mode,
+                                                        blt=bookmark_count,
+                                                        type_mode=type_mode,
+                                                        locale=self._locale)
+                PixivHelper.print_and_log('info', f'Looping... for {url}')
+                response_page = self.getPixivPage(url, returnParsed=False)
+
+
             # search by tags
             url = PixivHelper.generate_search_tag_url(tags,
                                                       current_page,
@@ -846,56 +910,12 @@ class PixivBrowser(mechanize.Browser):
                                                       blt=bookmark_count,
                                                       type_mode=type_mode,
                                                       locale=self._locale)
+            getResponseResult(url, member_id, tags, current_page, start_page=1, use_bookmark_data=False)
 
-            PixivHelper.print_and_log('info', f'Looping... for {url}')
-            response_page = self.getPixivPage(url, returnParsed=False)
-            self.handleDebugTagSearchPage(response_page, url)
-
-            result = None
-            if member_id is not None:
-                result = PixivTags()
-                parse_search_page = BeautifulSoup(response_page, features="html5lib")
-                result.parseMemberTags(parse_search_page, member_id, tags)
-                parse_search_page.decompose()
-                del parse_search_page
-            else:
-                try:
-                    result = PixivTags()
-                    result.parseTags(response_page, tags, current_page)
-
-                    # parse additional information
-                    if 0:  # Disabled, see #1159 #1160
-                        idx = 0
-                        print("Retrieving bookmark information...", end=' ')
-                        for image in result.itemList:
-                            idx = idx + 1
-                            print("\r", end=' ')
-                            print(f"Retrieving bookmark information... [{idx}] of [{len(result.itemList)}]", end=' ')
-
-                            img_url = f"https://www.pixiv.net/ajax/illust/{image.imageId}"
-                            response_page = self._get_from_cache(img_url)
-                            if response_page is None:
-                                try:
-                                    res = self.open_with_retry(img_url)
-                                    response_page = res.read()
-                                    res.close()
-                                except urllib.error.HTTPError as ex:
-                                    if ex.code == 404:
-                                        response_page = ex.read()
-                                self._put_to_cache(img_url, response_page)
-
-                            image_info_js = json.loads(response_page)
-                            image.bookmarkCount = int(
-                                image_info_js["body"]["bookmarkCount"])
-                            image.imageResponse = int(
-                                image_info_js["body"]["responseCount"])
-                            PixivHelper.wait(result, self._config)
-                    print("")
-                except BaseException:
-                    PixivHelper.dump_html(f"Dump for SearchTags {tags}.html", response_page)
-                    raise
+ 
 
         return (result, response_page)
+
 
     def handleDebugTagSearchPage(self, response, url):
         if self._config.enableDump:
