@@ -914,7 +914,11 @@ def generate_search_tag_url(tags,
             bookmark_limit_premium = f'&blt={blt}'
 
         if type_mode == "i":
+            type_mode = "illustrations"
+        elif type_mode == "iu":
             type_mode = "illust_and_ugoira"
+        elif type_mode == "u":
+            type_mode = "ugoira"
         elif type_mode == "m":
             type_mode = "manga"
         else:
